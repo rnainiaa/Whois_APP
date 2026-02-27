@@ -1,0 +1,10 @@
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
+GeoLite2-City.mmdb
+app.log
+exports/
+__pycache__/
+*.pyc

@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header text-center mb-4">
+    <h1><i class="fas fa-shield-alt"></i> Advanced WHOIS & Threat Intelligence</h1>
+    <p>IP Address & Domain Investigation Tool with VirusTotal Integration</p>
+</div>
+
+<!-- Search Form -->
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-search"></i> Search IP Addresses or Domains
+    </div>
+    <div class="card-body">
+        <form id="lookup-form" method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label for="ip_list" class="form-label">
+                    <i class="fas fa-list"></i> Enter IP Addresses or Domains (one per line)
+                </label>
+                <textarea name="ip_list" id="ip_list" class="form-control" rows="8"
+                    placeholder="Examples:&#10;8.8.8.8&#10;1.1.1.1&#10;google.com&#10;example.com"></textarea>
+                <small class="form-text text-muted">
+                    Supports: IPv4 addresses, domain names, URLs (will be cleaned automatically)
+                </small>
+            </div>
+            <div class="mb-3">
+                <label for="file" class="form-label">
+                    <i class="fas fa-file-upload"></i> Or upload a file (.txt, .csv)
+                </label>
+                <input class="form-control" type="file" id="file" name="file" accept=".txt,.csv">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-100">
+                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                <i class="fas fa-search"></i> Analyze
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if results %}
+<!-- Statistics -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-number">{{ results|length }}</div>
+            <div class="text-muted">Total Queries</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card" style="border-left-color: var(--accent-red);">
+            <div class="stats-number" style="color: var(--accent-red);">
+                {{ results|selectattr('0.threat_label', 'equalto', 'malicious')|list|length }}
+            </div>
+            <div class="text-muted">Malicious</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card" style="border-left-color: var(--accent-orange);">
+            <div class="stats-number" style="color: var(--accent-orange);">
+                {{ results|selectattr('0.threat_label', 'equalto', 'suspicious')|list|length }}
+            </div>
+            <div class="text-muted">Suspicious</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card" style="border-left-color: var(--accent-green);">
+            <div class="stats-number" style="color: var(--accent-green);">
+                {{ results|selectattr('0.threat_label', 'equalto', 'clean')|list|length }}
+            </div>
+            <div class="text-muted">Clean</div>
+        </div>
+    </div>
+</div>
+
+<!-- Results -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-table"></i> Analysis Results</span>
+        <div class="export-buttons">
+            <form method="POST" action="/export/csv" style="display: inline;">
+                <input type="hidden" name="results" value="{{ results }}">
+                <button type="submit" class="btn btn-sm btn-outline-light">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+            </form>
+            <form method="POST" action="/export/json" style="display: inline;">
+                <input type="hidden" name="results" value="{{ results }}">
+                <button type="submit" class="btn btn-sm btn-outline-light">
+                    <i class="fas fa-file-code"></i> Export JSON
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="card-body">
+        <table id="results-table" class="table table-dark table-striped table-hover" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Target</th>
+                    <th>Risk</th>
+                    <th>VPN/Proxy</th>
+                    <th>Threat Level</th>
+                    <th>VT Score</th>
+                    <th>Location</th>
+                    <th>Organization</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result, query_type in results %}
+                <tr>
+                    <td>
+                        {% if query_type == 'ip' %}
+                        <span class="badge bg-primary"><i class="fas fa-network-wired"></i> IP</span>
+                        {% elif query_type == 'domain' %}
+                        <span class="badge bg-info"><i class="fas fa-globe"></i> Domain</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Unknown</span>
+                        {% endif %}
+                    </td>
+
+                    {% if result.error %}
+                    <td colspan="8" class="text-danger">
+                        <i class="fas fa-exclamation-triangle"></i> {{ result.error }}
+                    </td>
+                    {% else %}
+
+                    <td>
+                        {% if query_type == 'ip' %}
+                        <a href="https://www.virustotal.com/gui/ip-address/{{ result.ip }}" target="_blank">
+                            {{ result.ip }}
+                        </a>
+                        {% elif query_type == 'domain' %}
+                        <a href="https://www.virustotal.com/gui/domain/{{ result.domain }}" target="_blank">
+                            {{ result.domain }}
+                        </a>
+                        {% endif %}
+                        {% if result.from_cache %}
+                        <span class="cache-indicator"><i class="fas fa-database"></i> cached</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <span class="badge badge-{{ result.risk_severity }}">
+                            {{ result.risk_score }}/100
+                        </span>
+                        <br><small>{{ result.risk_label }}</small>
+                    </td>
+
+                    <td>
+                        {% if query_type == 'ip' and result.vpn_proxy_label %}
+                        <span class="badge bg-{{ result.vpn_proxy_color }}">
+                            {% if result.ipqualityscore.vpn or result.ipqualityscore.active_vpn %}
+                            <i class="fas fa-user-secret"></i>
+                            {% elif result.ipqualityscore.proxy %}
+                            <i class="fas fa-network-wired"></i>
+                            {% elif result.ipqualityscore.tor or result.ipqualityscore.active_tor %}
+                            <i class="fas fa-mask"></i>
+                            {% else %}
+                            <i class="fas fa-check"></i>
+                            {% endif %}
+                            {{ result.vpn_proxy_label }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="threat-{{ result.threat_label }}">
+                        {{ result.threat_label|upper }}
+                    </td>
+
+                    <td>
+                        {% if result.virustotal and not result.virustotal.error %}
+                        <span class="{% if result.virustotal.malicious > 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ result.virustotal.malicious }}/{{ result.virustotal.total_engines }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if query_type == 'ip' %}
+                        {% if result.asn_country_code %}
+                        <span class="flag-icon flag-icon-{{ result.asn_country_code.lower() }}"></span>
+                        {{ result.asn_country_code }}
+                        {% endif %}
+                        <br><small class="text-muted">{{ result.city }}</small>
+                        {% elif query_type == 'domain' %}
+                        {% if result.ip_addresses %}
+                        <small>{{ result.ip_addresses|length }} IP(s)</small>
+                        {% else %}
+                        <span class="text-muted">N/A</span>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if query_type == 'ip' %}
+                        <small>{{ result.asn_description|truncate(30) }}</small>
+                        {% elif query_type == 'domain' %}
+                        {% if result.virustotal and result.virustotal.registrar %}
+                        <small>{{ result.virustotal.registrar|truncate(30) }}</small>
+                        {% else %}
+                        <span class="text-muted">N/A</span>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="modal"
+                            data-bs-target="#detailsModal-{{ loop.index }}">
+                            <i class="fas fa-info-circle"></i> More
+                        </button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modals for Details -->
+{% if results %}
+{% for result, query_type in results %}
+{% if not result.error %}
+<div class="modal fade" id="detailsModal-{{ loop.index }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="result-details bg-transparent border-0 p-0">
+                    <div class="row g-3">
+                        {% if query_type == 'ip' %}
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-info"></i> IP Information</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>ASN:</strong> {{ result.asn }}</li>
+                                <li><strong>ASN Description:</strong> {{ result.asn_description }}</li>
+                                <li><strong>ASN Country:</strong> {{ result.asn_country_code }}</li>
+                                <li><strong>Reverse DNS:</strong> {{ result.reverse_dns }}</li>
+                                <li><strong>IP Type:</strong> {{ result.ip_type }}</li>
+                                <li><strong>Abuse Score:</strong> {{ result.abuse_score }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-warning"><i class="fas fa-shield-alt"></i> Threat Intelligence</h6>
+                            <ul class="list-unstyled">
+                                {% if result.virustotal and not result.virustotal.error %}
+                                <li><strong>VT Reputation:</strong> {{ result.virustotal.reputation }}</li>
+                                <li><strong>Malicious:</strong> {{ result.virustotal.malicious }}</li>
+                                <li><strong>Suspicious:</strong> {{ result.virustotal.suspicious }}</li>
+                                <li><strong>Harmless:</strong> {{ result.virustotal.harmless }}</li>
+                                <li><strong>Undetected:</strong> {{ result.virustotal.undetected }}</li>
+                                <li><strong>Total Engines:</strong> {{ result.virustotal.total_engines }}</li>
+                                <li><strong>Last Analysis:</strong> {{ result.virustotal.last_analysis_date }}</li>
+                                {% else %}
+                                <li class="text-muted">VirusTotal data unavailable</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-map-marker-alt"></i> Geolocation</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>City:</strong> {{ result.city }}</li>
+                                <li><strong>Region:</strong> {{ result.region }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-project-diagram"></i> ASN Extended</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Registry:</strong> {{ result.asn_registry }}</li>
+                                <li><strong>ASN CIDR:</strong> {{ result.asn_cidr }}</li>
+                                <li><strong>ASN Date:</strong> {{ result.asn_date }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-warning"><i class="fas fa-user-secret"></i> VPN/Proxy & Fraud</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>VPN:</strong> {{ 'Yes' if result.ipqualityscore.vpn or result.ipqualityscore.active_vpn else 'No' }}</li>
+                                <li><strong>Proxy:</strong> {{ 'Yes' if result.ipqualityscore.proxy else 'No' }}</li>
+                                <li><strong>Tor:</strong> {{ 'Yes' if result.ipqualityscore.tor or result.ipqualityscore.active_tor else 'No' }}</li>
+                                <li><strong>Fraud Score:</strong> {{ result.ipqualityscore.fraud_score }}</li>
+                                <li><strong>Connection Type:</strong> {{ result.ipqualityscore.connection_type }}</li>
+                                <li><strong>ISP:</strong> {{ result.ipqualityscore.isp }}</li>
+                                <li><strong>Organization:</strong> {{ result.ipqualityscore.organization }}</li>
+                                <li><strong>Recent Abuse:</strong> {{ 'Yes' if result.ipqualityscore.recent_abuse else 'No' }}</li>
+                                <li><strong>Bot Status:</strong> {{ 'Yes' if result.ipqualityscore.bot_status else 'No' }}</li>
+                                <li><strong>Abuse Velocity:</strong> {{ result.ipqualityscore.abuse_velocity }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-file-signature"></i> WHOIS</h6>
+                            {% if result.whois and result.whois.net %}
+                            <ul class="list-unstyled">
+                                <li><strong>Net Name:</strong> {{ result.whois.net.name }}</li>
+                                <li><strong>Net Range:</strong> {{ result.whois.net.range }}</li>
+                                <li><strong>Net CIDR:</strong> {{ result.whois.net.cidr }}</li>
+                                <li><strong>Country:</strong> {{ result.whois.net.country }}</li>
+                                <li><strong>State:</strong> {{ result.whois.net.state }}</li>
+                                <li><strong>City:</strong> {{ result.whois.net.city }}</li>
+                                <li><strong>Postal Code:</strong> {{ result.whois.net.postal_code }}</li>
+                                <li><strong>Address:</strong> {{ result.whois.net.address }}</li>
+                                <li><strong>Org:</strong> {{ result.whois.net.org }}</li>
+                                <li><strong>Emails:</strong> {{ result.whois.net.emails }}</li>
+                                <li><strong>Created:</strong> {{ result.whois.net.created }}</li>
+                                <li><strong>Updated:</strong> {{ result.whois.net.updated }}</li>
+                            </ul>
+                            {% else %}
+                            <ul class="list-unstyled">
+                                <li class="text-muted">WHOIS data unavailable</li>
+                            </ul>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-clock"></i> Timeline</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Analysis Date:</strong> {{ result.analysis_timestamp }}</li>
+                                <li><strong>From Cache:</strong> {{ 'Yes' if result.from_cache else 'No' }}</li>
+                            </ul>
+                        </div>
+                        {% elif query_type == 'domain' %}
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-globe"></i> Domain Information</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>IP Addresses:</strong> {{ result.ip_addresses|join(', ') if result.ip_addresses else 'N/A' }}</li>
+                                <li><strong>A Records:</strong> {{ result.dns_records.A|join(', ') if result.dns_records.A else 'N/A' }}</li>
+                                <li><strong>AAAA Records:</strong> {{ result.dns_records.AAAA|join(', ') if result.dns_records.AAAA else 'N/A' }}</li>
+                                <li><strong>MX Records:</strong> {{ result.dns_records.MX|join(', ') if result.dns_records.MX else 'N/A' }}</li>
+                                <li><strong>NS Records:</strong> {{ result.dns_records.NS|join(', ') if result.dns_records.NS else 'N/A' }}</li>
+                                <li><strong>TXT Records:</strong> {{ result.dns_records.TXT|join(', ') if result.dns_records.TXT else 'N/A' }}</li>
+                                <li><strong>CNAME Records:</strong> {{ result.dns_records.CNAME|join(', ') if result.dns_records.CNAME else 'N/A' }}</li>
+                                <li><strong>SOA Record:</strong> {{ result.dns_records.SOA|join(', ') if result.dns_records.SOA else 'N/A' }}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-warning"><i class="fas fa-shield-alt"></i> Threat Intelligence</h6>
+                            <ul class="list-unstyled">
+                                {% if result.virustotal and not result.virustotal.error %}
+                                <li><strong>VT Reputation:</strong> {{ result.virustotal.reputation }}</li>
+                                <li><strong>Malicious:</strong> {{ result.virustotal.malicious }}</li>
+                                <li><strong>Suspicious:</strong> {{ result.virustotal.suspicious }}</li>
+                                <li><strong>Total Engines:</strong> {{ result.virustotal.total_engines }}</li>
+                                <li><strong>Last Analysis:</strong> {{ result.virustotal.last_analysis_date }}</li>
+                                <li><strong>Categories:</strong> {{ result.virustotal.categories }}</li>
+                                {% else %}
+                                <li class="text-muted">VirusTotal data unavailable</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-certificate"></i> SSL/TLS</h6>
+                            <ul class="list-unstyled">
+                                {% if result.ssl_info and not result.ssl_info.error %}
+                                <li><strong>Subject CN:</strong> {{ result.ssl_info.subject.CN }}</li>
+                                <li><strong>Issuer CN:</strong> {{ result.ssl_info.issuer.CN }}</li>
+                                <li><strong>Valid From:</strong> {{ result.ssl_info.not_before }}</li>
+                                <li><strong>Valid To:</strong> {{ result.ssl_info.not_after }}</li>
+                                <li><strong>Expired:</strong> {{ 'Yes' if result.ssl_info.has_expired else 'No' }}</li>
+                                {% else %}
+                                <li class="text-muted">SSL data unavailable</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-info"><i class="fas fa-clock"></i> Timeline</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Analysis Date:</strong> {{ result.analysis_timestamp }}</li>
+                                <li><strong>From Cache:</strong> {{ 'Yes' if result.from_cache else 'No' }}</li>
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if history %}
+<!-- Search History -->
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="fas fa-history"></i> Recent Searches
+    </div>
+    <div class="card-body">
+        <ul class="list-group list-group-flush">
+            {% for item in history[:5] %}
+            <li class="list-group-item bg-transparent text-light border-secondary">
+                <small class="text-muted">{{ item.timestamp }}</small> -
+                {{ item.query }} ({{ item.results_count }} results)
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function () {
+        $('#results-table').DataTable({
+            order: [[2, 'desc']], // Sort by risk score
+            pageLength: 25
+        });
+
+        $('#lookup-form').on('submit', function () {
+            $(this).find('.spinner-border').removeClass('d-none');
+            $(this).find('button[type="submit"]').prop('disabled', true);
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+Flask
+ipwhois
+geoip2
+requests
+dnspython
+pyOpenSSL
+Flask-Login
+Flask-WTF
+email_validator
