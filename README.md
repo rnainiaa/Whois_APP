@@ -1,34 +1,34 @@
 # WHOIS & Threat Intelligence Dashboard
 
-## Objectif
-Ce projet fournit un tableau de bord SOC pour analyser des IP et des domaines, agréger des sources de threat intelligence et produire une vue exploitable des risques (score, réputation, VPN/Proxy, ASN, WHOIS, etc.).
+## Objective
+This project provides a SOC dashboard to analyze IPs and domains, aggregate threat intelligence sources, and deliver an actionable view of risk (score, reputation, VPN/Proxy, ASN, WHOIS, etc.).
 
-## Fonctionnement
-- Interface web protégée par authentification.
-- Analyse d’IP et de domaines via API externes et modules internes.
-- Mise en cache des résultats dans SQLite pour accélérer les recherches.
-- Historique des recherches et exports (CSV/JSON).
-- Gestion par utilisateur des clés API (ABUSEIPDB, VIRUSTOTAL, SHODAN, IPQUALITYSCORE) depuis le profil.
+## How It Works
+- Authenticated web interface.
+- IP and domain analysis via external APIs and internal modules.
+- Result caching in SQLite to speed up lookups.
+- Search history and exports (CSV/JSON).
+- Per-user API key management (ABUSEIPDB, VIRUSTOTAL, SHODAN, IPQUALITYSCORE) from the profile.
 
-## Flux principal
-1. Connexion ou inscription.
-2. Saisie d’IP/domaines (texte ou fichier).
-3. Analyse automatique et affichage des résultats.
-4. Consultation des détails enrichis via le bouton More.
-5. Export des résultats si besoin.
+## Main Flow
+1. Sign in or register.
+2. Enter IPs/domains (text or file).
+3. Automatic analysis and results display.
+4. Review enriched details via the More button.
+5. Export results if needed.
 
-## Composants clés
-- Serveur web Flask.
-- Authentification avec sessions et profil utilisateur.
-- Collecte de données WHOIS/DNS/GeoIP et enrichissement via API.
-- Cache et historique en base SQLite.
+## Key Components
+- Flask web server.
+- Session-based authentication and user profile.
+- WHOIS/DNS/GeoIP data collection and API enrichment.
+- SQLite cache and history.
 
-## Lancer l’application
-1. Installer les dépendances :
+## Run the Application
+1. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-2. Démarrer le serveur :
+2. Start the server:
    ```bash
    python app.py
    ```

@@ -24,10 +24,14 @@
                 </small>
             </div>
             <div class="mb-3">
-                <label for="file" class="form-label">
+                <label for="fileInput" class="form-label">
                     <i class="fas fa-file-upload"></i> Or upload a file (.txt, .csv)
                 </label>
-                <input class="form-control" type="file" id="file" name="file" accept=".txt,.csv">
+                <div class="input-group">
+                    <button class="btn btn-outline-secondary" type="button" id="fileButton">Choose file</button>
+                    <input class="form-control d-none" type="file" id="fileInput" name="file" accept=".txt,.csv">
+                    <input class="form-control" type="text" id="fileName" value="No file chosen" readonly>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary btn-lg w-100">
                 <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
@@ -422,6 +426,21 @@
             $(this).find('.spinner-border').removeClass('d-none');
             $(this).find('button[type="submit"]').prop('disabled', true);
         });
+
+        const fileInput = document.getElementById('fileInput');
+        const fileButton = document.getElementById('fileButton');
+        const fileName = document.getElementById('fileName');
+
+        if (fileInput && fileButton && fileName) {
+            fileButton.addEventListener('click', function () {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', function () {
+                const name = fileInput.files && fileInput.files.length > 0 ? fileInput.files[0].name : 'No file chosen';
+                fileName.value = name;
+            });
+        }
     });
 </script>
 {% endblock %}
