@@ -24,11 +24,28 @@ This project provides a SOC dashboard to analyze IPs and domains, aggregate thre
 - SQLite cache and history.
 
 ## Run the Application
-1. Install dependencies:
+1️⃣ Install virtual environment support (if not already installed):
+   ```bash
+   pip install virtualenv
+   ```
+2️⃣ Create a virtual environment:
+   ```bash
+   virtualenv venv
+   ```
+3️⃣ Activate the virtual environment:
+   - On Windows:
+     ```bash
+     venv\Scripts\activate
+     ```
+   - On macOS/Linux:
+     ```bash
+     source venv/bin/activate
+     ```
+4️⃣ Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-2. Start the server:
+5️⃣ Start the server:
    ```bash
    python app.py
    ```
